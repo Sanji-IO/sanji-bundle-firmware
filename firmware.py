@@ -160,6 +160,7 @@ class Firmware(Sanji):
         return response()
 
     def upgrade(self):
+        # TODO: backup the configuration for future restore
         # TODO: stop the services that may have side effect when upgrading
         # ret = ezshell.run(profile["stop_services"])
         time.sleep(5)
