@@ -1,8 +1,8 @@
-all: pylint test-all
+all: pylint test
 
 pylint:
-	find . -maxdepth 1 -type d | grep -v ".git" | xargs flake8
-test-all:
-	find . -maxdepth 1 -type d | grep -v ".git" | xargs nosetests -w
+	flake8 -v .
+test:
+	nosetests --with-coverage --cover-erase --cover-package=ethernet
 
-.PHONY: pylint test-all
+.PHONY: pylint test

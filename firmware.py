@@ -2,7 +2,6 @@
 # -*- coding: UTF-8 -*-
 
 import os
-import sys
 import shutil
 import logging
 import json
@@ -11,12 +10,12 @@ from sanji.core import Sanji
 from sanji.core import Route
 from sanji.connection.mqtt import Mqtt
 
-path_root = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(path_root + "/lib")
 import ezshell
 
 # TODO: logger should be defined in sanji package?
 logger = logging.getLogger()
+
+path_root = os.path.abspath(os.path.dirname(__file__))
 
 # Bundle"s profilefirmware
 # TODO: add command to stop required services
