@@ -24,9 +24,9 @@ profile = {
     "backup": path_root + "/data/data.bak.json",
     "factory": path_root + "/data/factory.json",
     "firmware_path": "/run/shm/LATEST_FIRMWARE",
-    "firmware_version": "kversion | cut -d" " -f3",
+    "firmware_version": "kversion | cut -d\" \" -f3",
     "set_factory_default": "setdef",
-    "upgrade_firmware": "upgradehfm -y /run/shm/LATEST_FIRMWARE",
+    "upgrade_firmware": path_root + "tools/upgrade.sh",
     "turn_off_readyled": "/etc/init.d/showreadyled stop",
     "stop_services": "",
     "reboot": "reboot"
