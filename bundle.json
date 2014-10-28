@@ -1,0 +1,22 @@
+{
+  "name": "firmware",
+  "version": "1.0",
+  "author": "Aeluin Chen",
+  "email": "aeluin.chen@moxa.com",
+  "description": "Handle the firmware function including upgrading and resetting to factory default function",
+  "license": "MOXA",
+  "main": "firmware.py",
+  "argument": "",
+  "priority": 20,
+  "hook": [],
+  "dependencies": {},
+  "repository": "",
+  "role": "model",
+  "ttl": 10,
+  "resources": [
+    {
+      "methods": ["get", "put"],
+      "resource": "/system/firmware"
+    }
+  ]
+}
