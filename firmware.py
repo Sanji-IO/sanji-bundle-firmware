@@ -2,13 +2,13 @@
 # -*- coding: UTF-8 -*-
 
 import os
-import shutil
+# import shutil
 import logging
-import json
 import time
 from sanji.core import Sanji
 from sanji.core import Route
 from sanji.connection.mqtt import Mqtt
+from sanji.model_initiator import ModelInitiator
 
 import ezshell
 
@@ -20,9 +20,6 @@ path_root = os.path.abspath(os.path.dirname(__file__))
 # Bundle"s profilefirmware
 # TODO: add command to stop required services
 profile = {
-    "data": path_root + "/data/data.json",
-    "backup": path_root + "/data/data.bak.json",
-    "factory": path_root + "/data/factory.json",
     "firmware_path": "/run/shm/LATEST_FIRMWARE",
     "firmware_version": "kversion | cut -d\" \" -f3",
     "set_factory_default": "setdef",
@@ -34,76 +31,92 @@ profile = {
 
 
 class Firmware(Sanji):
+    """
+    A model to handle firmware upgrade and reset to factory default.
 
+    Attributes:
+        model: database with json format.
+    """
     def init(self, *args, **kwargs):
-        try:
-            bundle_env = kwargs["bundle_env"]
+        try:  # pragma: no cover
+            self.bundle_env = kwargs["bundle_env"]
         except KeyError:
-            bundle_env = os.getenv("BUNDLE_ENV", "debug")
+            self.bundle_env = os.getenv("BUNDLE_ENV", "debug")
 
-        if "debug" == bundle_env:  # pragma: no cover
-            profile["firmware_version"] = path_root + "/tests/kversion.sh"
-            profile["set_factory_default"] = path_root + "/tests/setdef.sh 0"
-            profile["upgrade_firmware"] = path_root + "/tests/upgradehfm.sh 0"
-            profile["reboot"] = path_root + "/tests/reboot.sh 0"
-
-        # TODO: using modelinitiator instead
-        self.data = dict()
-        try:
-            self.load()
-        except Exception, e:
-            logger.error("Please reinstall the package: %s", e)
-            self.stop()
-            raise IOError("Please reinstall the package: %s", e)
-
-    def before_stop(self):
-        pass
-
-    def load(self):
-        """
-        Load the configuration, try to load the backup one or factory
-        settings if failed.
-        """
-        try:
-            logger.info("file: %s" % profile["data"])
-            with open(profile["data"]) as jfile:
-                self.data = json.load(jfile)
-            return
-        except:  # pragma: no cover
-            pass  # fallback to backup configuration
+        path_root = os.path.abspath(os.path.dirname(__file__))
+        if self.bundle_env == "debug":  # pragma: no cover
+            path_root = "%s/tests" % path_root
+            profile["firmware_version"] = path_root + "/kversion.sh"
+            profile["set_factory_default"] = path_root + "/setdef.sh 0"
+            profile["upgrade_firmware"] = path_root + "/upgradehfm.sh 0"
+            profile["reboot"] = path_root + "/reboot.sh 0"
 
         try:
-            logger.error("Failed to load current configuration, load "
-                         "previous one.")
-            with open(profile["backup"]) as jfile:
-                self.data = json.load(jfile)
-            return
-        except:  # pragma: no cover
-            pass  # fallback to factory configuration
-
-        try:
-            logger.info("Load factory configuration. %s" % profile["factory"])
-            with open(profile["factory"]) as jfile:
-                self.data = json.load(jfile)
+            self.load(path_root)
         except:
+            self.stop()
             raise IOError("Cannot load any configuration.")
+
+    def load(self, path):
+        """
+        Load the configuration. If configuration is not installed yet,
+        initialise them with default value.
+
+        Args:
+            path: Path for the bundle, the configuration should be located
+                under "data" directory.
+        """
+        self.model = ModelInitiator("firmware", path, backup_interval=-1)
+        if None == self.model.db:
+            raise IOError("Cannot load any configuration.")
+        self.save()
 
     def save(self):
         """
-        Save the configuration and make a backup.
+        Save and backup the configuration.
         """
-        try:
-            with open(profile["data"], "w") as file:
-                json.dump(self.data, file, indent=4, ensure_ascii=False)
-        except Exception, e:
-            logger.error("Cannot save the configuration: %s." % e)
-            raise IOError("Failed to save the configuration.")
+        self.model.save_db()
+        self.model.backup_db()
 
-        try:
-            shutil.copyfile(profile["data"], profile["backup"])
-        except Exception, e:
-            logger.error("Cannot backup the configuration: %s." % e)
-            raise IOError("Failed to backup the configuration.")
+    def upgrade(self):
+        # TODO: backup the configuration for future restore
+        # TODO: stop the services that may have side effect when upgrading
+        # ret = ezshell.run(profile["stop_services"])
+
+        # set flags to show the upgrading status
+        self.model.db["upgrading"] = 1
+        self.save()
+
+        time.sleep(5)
+        ret = ezshell.run(profile["upgrade_firmware"])
+        ret.output()
+        if ret.returncode() == 0:
+            logger.info("Upgrading success, reboot now.")
+            self.model.db["upgrading"] = 0
+        else:
+            logger.error("Upgrading failed, please check if the file is"
+                         " correct.")
+            self.model.db["upgrading"] = -1
+        self.save()
+        ezshell.run(profile["reboot"])
+
+    def setdef(self):
+        # TODO: stop the services that may have side effect when setdef
+        # ret = ezshell.run(profile["stop_services"])
+        self.model.db["defaulting"] = 1
+        self.save()
+
+        time.sleep(5)
+        ret = ezshell.run(profile["set_factory_default"])
+        ret.output()
+        if ret.returncode() == 0:
+            logger.info("Resetting to factory default success, reboot now.")
+            self.model.db["defaulting"] = 0
+        else:
+            logger.error("Resetting failed.")
+            self.model.db["defaulting"] = -1
+        self.save()
+        ezshell.run(profile["reboot"])
 
     @Route(methods="get", resource="/system/firmware")
     def get(self, message, response):
@@ -114,8 +127,8 @@ class Firmware(Sanji):
         }
         """
         ret = ezshell.run(profile["firmware_version"])
-        self.data["version"] = ret.output()
-        return response(data=self.data)
+        self.model.db["version"] = ret.output()
+        return response(data=self.model.db)
 
     @Route(methods="put", resource="/system/firmware")
     def put(self, message, response):
@@ -147,7 +160,7 @@ class Firmware(Sanji):
 
         # Update the firmware upgrading server
         if "server" in message.data:
-            self.data["server"] = message.data["server"]
+            self.model.db["server"] = message.data["server"]
             self.save()
 
         # Upgrading the firmware
@@ -157,32 +170,6 @@ class Firmware(Sanji):
             return
 
         return response()
-
-    def upgrade(self):
-        # TODO: backup the configuration for future restore
-        # TODO: stop the services that may have side effect when upgrading
-        # ret = ezshell.run(profile["stop_services"])
-        time.sleep(5)
-        ret = ezshell.run(profile["upgrade_firmware"])
-        ret.output()
-        if ret.returncode() == 0:
-            logger.info("Upgrading success, reboot now.")
-        else:
-            logger.error("Upgrading failed, please check if the file is"
-                         " correct.")
-        ezshell.run(profile["reboot"])
-
-    def setdef(self):
-        # TODO: stop the services that may have side effect when setdef
-        # ret = ezshell.run(profile["stop_services"])
-        time.sleep(5)
-        ret = ezshell.run(profile["set_factory_default"])
-        ret.output()
-        if ret.returncode() == 0:
-            logger.info("Resetting to factory default success, reboot now.")
-        else:
-            logger.error("Resetting failed.")
-        ezshell.run(profile["reboot"])
 
 
 if __name__ == "__main__":  # pragma: no cover
