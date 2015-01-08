@@ -57,6 +57,19 @@ class Firmware(Sanji):
             self.stop()
             raise IOError("Cannot load any configuration.")
 
+    def run(self):
+        if "upgrading" in self.model.db:
+            if self.model.db["upgrading"] == -1:
+                self.publish.event.put(
+                    "/system/firmware",
+                    data={"code": "FW_UPGRADE_FAIL", "type": "event"})
+            else:
+                self.publish.event.put(
+                    "/system/firmware",
+                    data={"code": "FW_UPGRADE_SUCCESS", "type": "event"})
+            self.model.db.pop("upgrading")
+            self.save()
+
     def load(self, path):
         """
         Load the configuration. If configuration is not installed yet,
@@ -84,6 +97,11 @@ class Firmware(Sanji):
         # ret = ezshell.run(profile["stop_services"])
 
         # set flags to show the upgrading status
+        """
+        self.publish.event.put(
+            "/system/firmware",
+            data={"code": "FW_UPGRADING", "type": "event"})
+        """
         self.model.db["upgrading"] = 1
         self.save()
 

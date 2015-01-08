@@ -9,6 +9,7 @@ import logging
 import unittest
 
 from mock import patch
+from mock import MagicMock
 from sanji.connection.mockup import Mockup
 from sanji.message import Message
 
@@ -33,6 +34,7 @@ class TestFirmwareClass(unittest.TestCase):
     def setUp(self):
         self.name = "firmware"
         self.bundle = Firmware(connection=Mockup())
+        self.bundle.publish = MagicMock()
 
     def tearDown(self):
         self.bundle.stop()
@@ -55,6 +57,26 @@ class TestFirmwareClass(unittest.TestCase):
             with patch("firmware.ModelInitiator") as mock_modelinit:
                 mock_modelinit.side_effect = IOError
                 self.bundle.init()
+
+    def test__run(self):
+        """
+        run: normal
+        """
+        self.bundle.run()
+
+    def test__run__upgrading_success(self):
+        """
+        run: upgrading success
+        """
+        self.bundle.model.db["upgrading"] = 1
+        self.bundle.run()
+
+    def test__run__upgrading_failed(self):
+        """
+        run: upgrading failed
+        """
+        self.bundle.model.db["upgrading"] = -1
+        self.bundle.run()
 
     def test__load__current_conf(self):
         """
