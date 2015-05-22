@@ -3,4 +3,3 @@ paho-mqtt
 coveralls
 sh
 sanji
-git+https://github.com/lwindg/ezshell.git#egg=ezshell
