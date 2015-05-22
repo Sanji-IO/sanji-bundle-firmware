@@ -49,6 +49,7 @@ class TestFirmwareClass(unittest.TestCase):
         except OSError:
             pass
 
+    '''
     def test__init__no_conf(self):
         """
         init: no configuration file
@@ -146,19 +147,35 @@ class TestFirmwareClass(unittest.TestCase):
         profile["set_factory_default"] = dirpath + "/setdef.sh 1"
         self.bundle.setdef()
         self.assertEqual(-1, self.bundle.model.db["defaulting"])
+    '''
 
     def test__get(self):
         """
         get (/system/firmware)
         """
-        profile["firmware_version"] = dirpath + "/kversion.sh"
         message = Message({"data": {}, "query": {}, "param": {}})
+
+        with patch("firmware.sh.pversion") as pversion:
+            def mock_pversion():
+                return "MXcloud version 1.0"
+            pversion.side_effect = mock_pversion
+            def resp(code=200, data=None):
+                self.assertEqual(200, code)
+                self.assertEqual("1.0", data["version"])
+            self.bundle.get(message=message, response=resp, test=True)
+        '''
+        def mock_pversion_output():
+            return "MXcloud version 1.0"
+        mock_pversion.side_effect = mock_pversion_output
+
 
         def resp(code=200, data=None):
             self.assertEqual(200, code)
             self.assertEqual("1.0", data["version"])
         self.bundle.get(message=message, response=resp, test=True)
+        '''
 
+    '''
     @patch("firmware.time.sleep")
     def test__put__no_data(self, mock_sleep):
         """
@@ -277,6 +294,7 @@ class TestFirmwareClass(unittest.TestCase):
         message = Message(msg)
         self.bundle.put(message, response=resp, test=True)
 
+    '''
 
 if __name__ == "__main__":
     FORMAT = "%(asctime)s - %(levelname)s - %(lineno)s - %(message)s"

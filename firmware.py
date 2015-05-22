@@ -5,6 +5,7 @@ import os
 # import shutil
 import logging
 import time
+import sh
 from sanji.core import Sanji
 from sanji.core import Route
 from sanji.connection.mqtt import Mqtt
@@ -20,8 +21,6 @@ path_root = os.path.abspath(os.path.dirname(__file__))
 # Bundle"s profilefirmware
 # TODO: add command to stop required services
 profile = {
-    "firmware_path": "/run/shm/LATEST_FIRMWARE",
-    "firmware_version": "kversion | cut -d\" \" -f3",
     "set_factory_default": "setdef",
     "upgrade_firmware": path_root + "tools/upgrade.sh",
     "turn_off_readyled": "/etc/init.d/showreadyled stop",
@@ -46,9 +45,8 @@ class Firmware(Sanji):
         path_root = os.path.abspath(os.path.dirname(__file__))
         if self.bundle_env == "debug":  # pragma: no cover
             path_root = "%s/tests" % path_root
-            profile["firmware_version"] = path_root + "/kversion.sh"
             profile["set_factory_default"] = path_root + "/setdef.sh 0"
-            profile["upgrade_firmware"] = path_root + "/upgradehfm.sh 0"
+            profile["upgrade_firmware"] = path_root + "/upgradehfm.sh"
             profile["reboot"] = path_root + "/reboot.sh 0"
 
         try:
@@ -105,7 +103,15 @@ class Firmware(Sanji):
         self.model.db["upgrading"] = 1
         self.save()
 
-        time.sleep(5)
+        time.sleep(1)
+        try:
+            sh.sh(profile["upgrade_firmware"])
+            logger.info("Upgrading success, reboot now.")
+            self.model.db["upgrading"] = 0
+        except:
+            logger.error("Upgrading failed, please check if the file is"
+                         " correct.")
+        """
         ret = ezshell.run(profile["upgrade_firmware"])
         ret.output()
         if ret.returncode() == 0:
@@ -115,6 +121,7 @@ class Firmware(Sanji):
             logger.error("Upgrading failed, please check if the file is"
                          " correct.")
             self.model.db["upgrading"] = -1
+        """
         self.save()
         ezshell.run(profile["reboot"])
 
@@ -144,8 +151,8 @@ class Firmware(Sanji):
             "server": "www.moxa.com"
         }
         """
-        ret = ezshell.run(profile["firmware_version"])
-        self.model.db["version"] = ret.output()
+        output = sh.awk(sh.pversion(), "{print $3}")
+        self.model.db["version"] = str(output.split()[0])
         return response(data=self.model.db)
 
     @Route(methods="put", resource="/system/firmware")
