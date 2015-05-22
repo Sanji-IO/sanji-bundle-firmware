@@ -22,7 +22,7 @@ path_root = os.path.abspath(os.path.dirname(__file__))
 # TODO: add command to stop required services
 profile = {
     "set_factory_default": "setdef",
-    "upgrade_firmware": path_root + "tools/upgrade.sh",
+    "upgrade_firmware": path_root + "/tools/upgrade.sh",
     "turn_off_readyled": "/etc/init.d/showreadyled stop",
     "stop_services": "",
     "reboot": "reboot"
@@ -111,6 +111,7 @@ class Firmware(Sanji):
         except:
             logger.error("Upgrading failed, please check if the file is"
                          " correct.")
+            self.model.db["upgrading"] = -1
         """
         ret = ezshell.run(profile["upgrade_firmware"])
         ret.output()

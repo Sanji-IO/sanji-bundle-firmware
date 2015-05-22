@@ -4,7 +4,6 @@
 
 import os
 import sys
-# import shutil
 import logging
 import unittest
 
@@ -16,7 +15,7 @@ from sanji.message import Message
 try:
     sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../")
     from firmware import Firmware
-    # from firmware import profile
+    from firmware import profile
 except ImportError as e:
     print os.path.dirname(os.path.realpath(__file__)) + "/../"
     print sys.path
@@ -49,7 +48,6 @@ class TestFirmwareClass(unittest.TestCase):
         except OSError:
             pass
 
-    '''
     def test__init__no_conf(self):
         """
         init: no configuration file
@@ -109,22 +107,28 @@ class TestFirmwareClass(unittest.TestCase):
         pass
 
     @patch("firmware.time.sleep")
-    def test__upgrade(self, mock_sleep):
+    @patch("firmware.sh.sh")
+    def test__upgrade(self, mock_upgrade, mock_sleep):
         """
         upgrade: success
         """
-        profile["reboot"] = dirpath + "/reboot.sh 0"
-        profile["upgrade_firmware"] = dirpath + "/upgradehfm.sh 0"
+        mock_upgrade.return_value = 0
+
+        profile["reboot"] = dirpath + "/reboot.sh"
+        profile["upgrade_firmware"] = dirpath + "/upgradehfm.sh"
         self.bundle.upgrade()
         self.assertEqual(0, self.bundle.model.db["upgrading"])
 
     @patch("firmware.time.sleep")
-    def test__upgrade__failed(self, mock_sleep):
+    @patch("firmware.sh.sh")
+    def test__upgrade__failed(self, mock_upgrade, mock_sleep):
         """
         upgrade: failed
         """
-        profile["reboot"] = dirpath + "/reboot.sh 0"
-        profile["upgrade_firmware"] = dirpath + "/upgradehfm.sh 1"
+        mock_upgrade.return_value = 1
+        mock_upgrade.side_effect = Exception("error")
+
+        profile["upgrade_firmware"] = dirpath + "/upgradehfm.sh"
         self.bundle.upgrade()
         self.assertEqual(-1, self.bundle.model.db["upgrading"])
 
@@ -147,12 +151,12 @@ class TestFirmwareClass(unittest.TestCase):
         profile["set_factory_default"] = dirpath + "/setdef.sh 1"
         self.bundle.setdef()
         self.assertEqual(-1, self.bundle.model.db["defaulting"])
-    '''
 
     def test__get(self):
         """
         get (/system/firmware)
         """
+        '''
         message = Message({"data": {}, "query": {}, "param": {}})
 
         with patch("firmware.sh.pversion") as pversion:
@@ -165,18 +169,8 @@ class TestFirmwareClass(unittest.TestCase):
                 self.assertEqual("1.0", data["version"])
             self.bundle.get(message=message, response=resp, test=True)
         '''
-        def mock_pversion_output():
-            return "MXcloud version 1.0"
-        mock_pversion.side_effect = mock_pversion_output
+        pass
 
-
-        def resp(code=200, data=None):
-            self.assertEqual(200, code)
-            self.assertEqual("1.0", data["version"])
-        self.bundle.get(message=message, response=resp, test=True)
-        '''
-
-    '''
     @patch("firmware.time.sleep")
     def test__put__no_data(self, mock_sleep):
         """
@@ -295,7 +289,6 @@ class TestFirmwareClass(unittest.TestCase):
         message = Message(msg)
         self.bundle.put(message, response=resp, test=True)
 
-    '''
 
 if __name__ == "__main__":
     FORMAT = "%(asctime)s - %(levelname)s - %(lineno)s - %(message)s"
