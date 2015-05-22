@@ -16,7 +16,7 @@ from sanji.message import Message
 try:
     sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../")
     from firmware import Firmware
-    from firmware import profile
+    # from firmware import profile
 except ImportError as e:
     print os.path.dirname(os.path.realpath(__file__)) + "/../"
     print sys.path
@@ -159,6 +159,7 @@ class TestFirmwareClass(unittest.TestCase):
             def mock_pversion():
                 return "MXcloud version 1.0"
             pversion.side_effect = mock_pversion
+
             def resp(code=200, data=None):
                 self.assertEqual(200, code)
                 self.assertEqual("1.0", data["version"])
