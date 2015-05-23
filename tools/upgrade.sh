@@ -14,13 +14,13 @@ mar2000 ()
 
 uc8100 ()
 {
-	apt-get update || apt-get update
+	apt-get update
 	if [ $? -ne 0 ]; then
 		echo "Cannot update the database, please check the internet."
 		return 1
 	fi
-	#apt-get upgrade uc8100-system
-	apt-get install --only-upgrade uc8100-system
+	apt-get upgrade --only-upgrade -y mxcloud-cg
+	#apt-get install --only-upgrade uc8100-system
 	if [ $? -ne 0 ]; then
 		return 1
 	fi

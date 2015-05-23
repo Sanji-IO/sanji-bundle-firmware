@@ -4,7 +4,6 @@
 
 import os
 import sys
-# import shutil
 import logging
 import unittest
 
@@ -15,8 +14,9 @@ from sanji.message import Message
 
 try:
     sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../")
+    os.environ["PATH"] = os.path.dirname(os.path.realpath(__file__)) \
+        + ":" + os.environ["PATH"]
     from firmware import Firmware
-    from firmware import profile
 except ImportError as e:
     print os.path.dirname(os.path.realpath(__file__)) + "/../"
     print sys.path
@@ -108,42 +108,47 @@ class TestFirmwareClass(unittest.TestCase):
         pass
 
     @patch("firmware.time.sleep")
-    def test__upgrade(self, mock_sleep):
+    @patch("firmware.sh.sh")
+    @patch("firmware.sh.reboot")
+    def test__upgrade(self, mock_reboot, mock_upgrade, mock_sleep):
         """
         upgrade: success
         """
-        profile["reboot"] = dirpath + "/reboot.sh 0"
-        profile["upgrade_firmware"] = dirpath + "/upgradehfm.sh 0"
+        mock_upgrade.return_value = 0
+
         self.bundle.upgrade()
         self.assertEqual(0, self.bundle.model.db["upgrading"])
 
     @patch("firmware.time.sleep")
-    def test__upgrade__failed(self, mock_sleep):
+    @patch("firmware.sh.sh")
+    def test__upgrade__failed(self, mock_upgrade, mock_sleep):
         """
         upgrade: failed
         """
-        profile["reboot"] = dirpath + "/reboot.sh 0"
-        profile["upgrade_firmware"] = dirpath + "/upgradehfm.sh 1"
+        mock_upgrade.return_value = 1
+        mock_upgrade.side_effect = Exception("error")
+
         self.bundle.upgrade()
         self.assertEqual(-1, self.bundle.model.db["upgrading"])
 
     @patch("firmware.time.sleep")
-    def test__setdef(self, mock_sleep):
+    @patch("firmware.sh.setdef")
+    @patch("firmware.sh.reboot")
+    def test__setdef(self, mock_reboot, mock_setdef, mock_sleep):
         """
         setdef: success
         """
-        profile["reboot"] = dirpath + "/reboot.sh"
-        profile["set_factory_default"] = dirpath + "/setdef.sh 0"
         self.bundle.setdef()
         self.assertEqual(0, self.bundle.model.db["defaulting"])
 
     @patch("firmware.time.sleep")
-    def test__setdef__failed(self, mock_sleep):
+    @patch("firmware.sh.setdef")
+    def test__setdef__failed(self, mock_setdef, mock_sleep):
         """
         setdef: failed
         """
-        profile["reboot"] = dirpath + "/reboot.sh"
-        profile["set_factory_default"] = dirpath + "/setdef.sh 1"
+        mock_setdef.side_effect = Exception("error")
+
         self.bundle.setdef()
         self.assertEqual(-1, self.bundle.model.db["defaulting"])
 
@@ -151,16 +156,14 @@ class TestFirmwareClass(unittest.TestCase):
         """
         get (/system/firmware)
         """
-        profile["firmware_version"] = dirpath + "/kversion.sh"
         message = Message({"data": {}, "query": {}, "param": {}})
 
         def resp(code=200, data=None):
             self.assertEqual(200, code)
-            self.assertEqual("1.0", data["version"])
+            self.assertEqual("1.0.0", data["version"])
         self.bundle.get(message=message, response=resp, test=True)
 
-    @patch("firmware.time.sleep")
-    def test__put__no_data(self, mock_sleep):
+    def test__put__no_data(self):
         """
         put (/system/firmware): no data attribute
         """
@@ -176,8 +179,7 @@ class TestFirmwareClass(unittest.TestCase):
         message = Message(msg)
         self.bundle.put(message, response=resp, test=True)
 
-    @patch("firmware.time.sleep")
-    def test__put__empty_data(self, mock_sleep):
+    def test__put__empty_data(self):
         """
         put (/system/firmware): data dict is empty
         """
@@ -194,8 +196,7 @@ class TestFirmwareClass(unittest.TestCase):
         message = Message(msg)
         self.bundle.put(message, response=resp, test=True)
 
-    @patch("firmware.time.sleep")
-    def test__put__no_flag(self, mock_sleep):
+    def test__put__no_flag(self):
         """
         put (/system/firmware): no reset/upgrade/server flag in data dict
         """
@@ -214,13 +215,11 @@ class TestFirmwareClass(unittest.TestCase):
         message = Message(msg)
         self.bundle.put(message, response=resp, test=True)
 
-    @patch("firmware.time.sleep")
+    @patch.object(Firmware, 'setdef')
     def test__put__setdef(self, mock_sleep):
         """
         put (/system/firmware): reset to factory default
         """
-        profile["reboot"] = dirpath + "/reboot.sh 0"
-        profile["set_factory_default"] = dirpath + "/setdef.sh 0"
         msg = {
             "id": 12345,
             "method": "put",
@@ -235,8 +234,7 @@ class TestFirmwareClass(unittest.TestCase):
         message = Message(msg)
         self.bundle.put(message, response=resp, test=True)
 
-    @patch("firmware.time.sleep")
-    def test__put__update_server(self, mock_sleep):
+    def test__put__update_server(self):
         """
         put (/system/firmware): update upgrading server
         """
@@ -256,13 +254,11 @@ class TestFirmwareClass(unittest.TestCase):
         self.bundle.load(dirpath)
         self.assertEqual(self.bundle.model.db["server"], "firmware.moxa.com")
 
-    @patch("firmware.time.sleep")
+    @patch.object(Firmware, 'upgrade')
     def test__put__upgrade(self, mock_sleep):
         """
         put (/system/firmware): firmware upgrading
         """
-        profile["reboot"] = dirpath + "/reboot.sh 0"
-        profile["upgrade_firmware"] = dirpath + "/upgradehfm.sh 0"
         msg = {
             "id": 12345,
             "method": "put",
