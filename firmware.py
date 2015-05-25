@@ -187,15 +187,13 @@ class Firmware(Sanji):
         """
         try:
             check = self.check()
-            print "----- 1"
-        except Exception("Update failed."):
-            print "----- update failed 1----"
-            return response(code=400, data={"message": "Update failed."})
-        except Exception("Firmware not installed."):
-            print "----- update failed 2----"
-            return response(code=400,
-                            data={"message": "Firmware not installed."})
-        print "----- 2"
+        except Exception as e:
+            if Exception("Update failed.").args == e.args:
+                return response(code=400, data={"message": "Update failed."})
+            elif Exception("Firmware not installed.").args == e.args:
+                return response(code=400,
+                                data={"message": "Firmware not installed."})
+            return response(code=400, data={"message": "Unknown error."})
         return response(data=check)
 
     @Route(methods="put", resource="/system/firmware")

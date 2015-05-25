@@ -244,6 +244,51 @@ class TestFirmwareClass(unittest.TestCase):
             self.assertEqual(data, {"message": "Update failed."})
         self.bundle.get_check(message=message, response=resp, test=True)
 
+    @patch.object(Firmware, 'check')
+    def test__get_check__firmware_not_installed(self, mock_check):
+        """
+        get (/system/firmware/check): firmware not installed
+        """
+        mock_check.side_effect = Exception("Firmware not installed.")
+        message = Message({"data": {}, "query": {}, "param": {}})
+
+        def resp(code=200, data=None):
+            self.assertEqual(400, code)
+            self.assertEqual(data, {"message": "Firmware not installed."})
+        self.bundle.get_check(message=message, response=resp, test=True)
+
+    @patch.object(Firmware, 'check')
+    def test__get_check__unknown_error(self, mock_check):
+        """
+        get (/system/firmware/check): unknown error
+        """
+        mock_check.side_effect = Exception("error")
+        message = Message({"data": {}, "query": {}, "param": {}})
+
+        def resp(code=200, data=None):
+            self.assertEqual(400, code)
+            self.assertEqual(data, {"message": "Unknown error."})
+        self.bundle.get_check(message=message, response=resp, test=True)
+
+    @patch.object(Firmware, 'check')
+    def test__get_check(self, mock_check):
+        """
+        get (/system/firmware/check)
+        """
+        def mock_check():
+            check = dict()
+            check["installed"] = "1.0.0"
+            check["candidate"] = "1.1.0"
+            check["isLatest"] = 0
+            return check
+
+        mock_check.side_effect = mock_check
+        message = Message({"data": {}, "query": {}, "param": {}})
+
+        def resp(code=200, data=None):
+            self.assertEqual(200, code)
+        self.bundle.get_check(message=message, response=resp, test=True)
+
     def test__put__no_data(self):
         """
         put (/system/firmware): no data attribute
