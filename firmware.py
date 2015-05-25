@@ -81,6 +81,47 @@ class Firmware(Sanji):
         self.model.save_db()
         self.model.backup_db()
 
+    def check(self):
+        """
+        apt-get update -o Dir::Etc::sourcelist="sources.list.d/mxcloud.list"
+                -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
+          - finish
+          - timeout
+        apt-cache policy mxcloud-cg
+          - installed
+          - not installed: empty output
+        dpkg --compare-versions [current] le [candidate]
+          - true: there's newer for upgrade if [current] != [candidate]
+          - false: need not to be upgraded
+        """
+
+        # get the update list
+        try:
+            sh.apt_get("update", "-o",
+                       "Dir::Etc::sourcelist='sources.list.d/mxcloud.list'",
+                       "-o", "Dir::Etc::sourceparts='-'", "-o",
+                       "APT::Get::List-Cleanup='0'")
+        except:
+            raise Exception("Update failed.")
+
+        # retrieve version
+        output = sh.apt_cache("policy", "mxcloud-cg").splitlines()
+        if len(output) < 3:
+            raise Exception("Firmware not installed.")
+
+        check = dict()
+        check["isLatest"] = 0
+        check["installed"] = output[1].split()[1]
+        check["candidate"] = output[2].split()[1]
+        try:
+            output = sh.dpkg("--compare-versions", check["installed"], "le",
+                             check["candidate"])
+            if check["installed"] == check["candidate"]:
+                check["isLatest"] = 1
+        except:
+            check["isLatest"] = 1
+        return check
+
     def upgrade(self):
         # TODO: backup the configuration for future restore
 
@@ -134,6 +175,28 @@ class Firmware(Sanji):
         output = sh.awk(sh.pversion(), "{print $3}")
         self.model.db["version"] = str(output.split()[0])
         return response(data=self.model.db)
+
+    @Route(methods="get", resource="/system/firmware/check")
+    def get_check(self, message, response):
+        """
+        {
+            "isLatest": 1,
+            "installed": "1.0.0",
+            "candidate": "1.0.0"
+        }
+        """
+        try:
+            check = self.check()
+            print "----- 1"
+        except Exception("Update failed."):
+            print "----- update failed 1----"
+            return response(code=400, data={"message": "Update failed."})
+        except Exception("Firmware not installed."):
+            print "----- update failed 2----"
+            return response(code=400,
+                            data={"message": "Firmware not installed."})
+        print "----- 2"
+        return response(data=check)
 
     @Route(methods="put", resource="/system/firmware")
     def put(self, message, response):

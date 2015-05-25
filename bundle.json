@@ -12,11 +12,15 @@
   "dependencies": {},
   "repository": "",
   "role": "model",
-  "ttl": 10,
+  "ttl": 30,
   "resources": [
     {
       "methods": ["get", "put"],
       "resource": "/system/firmware"
+    },
+    {
+      "methods": ["get"],
+      "resource": "/system/firmware/check"
     }
   ]
 }

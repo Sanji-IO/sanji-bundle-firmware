@@ -1,0 +1,12 @@
+#!/bin/sh
+
+echo "mxcloud-cg:"
+echo "  Installed: $1"
+echo "  Candidate: $2"
+echo "  Version table:"
+echo "     1.0.0 0"
+echo "        500 http://192.168.31.81/debian/repo/ unstable/main armhf Packages"
+echo " *** 1.0.0 0"
+echo "        100 /var/lib/dpkg/status"
+echo ""
+
