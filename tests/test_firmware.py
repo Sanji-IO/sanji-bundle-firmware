@@ -109,7 +109,7 @@ class TestFirmwareClass(unittest.TestCase):
         pass
 
     @patch("firmware.sh.apt_get")
-    def test__check_update_failed(self, mock_apt_get):
+    def test__check__update_failed(self, mock_apt_get):
         """
         check: failed to update the apt list
         """
@@ -117,9 +117,20 @@ class TestFirmwareClass(unittest.TestCase):
         with self.assertRaises(Exception):
             self.bundle.check()
 
+    @patch("firmware.sh.dpkg")
+    @patch("firmware.sh.apt_get")
+    def test__check__update_failed2(self, mock_apt_get, mock_dpkg):
+        """
+        check: failed to update the apt list
+        """
+        mock_apt_get.side_effect = Exception("error")
+        mock_dpkg.side_effect = Exception("error")
+        with self.assertRaises(Exception):
+            self.bundle.check()
+
     @patch("firmware.sh.apt_cache")
     @patch("firmware.sh.apt_get")
-    def test__check_not_installed(self, mock_apt_get, mock_apt_cache):
+    def test__check__not_installed(self, mock_apt_get, mock_apt_cache):
         """
         check: firmware didn't installed
         """
@@ -132,7 +143,7 @@ class TestFirmwareClass(unittest.TestCase):
 
     @patch("firmware.sh.apt_cache")
     @patch("firmware.sh.apt_get")
-    def test__check_not_latest(self, mock_apt_get, mock_apt_cache):
+    def test__check__not_latest(self, mock_apt_get, mock_apt_cache):
         """
         check: firmware version is not latest
         """
@@ -142,12 +153,12 @@ class TestFirmwareClass(unittest.TestCase):
         mock_apt_cache.side_effect = mock_policy
         check = self.bundle.check()
         self.assertEqual(check["isLatest"], 0)
-        self.assertEqual(check["installed"], "1.0.0")
+        self.assertEqual(check["current"], "1.0.0")
         self.assertEqual(check["candidate"], "1.1.0")
 
     @patch("firmware.sh.apt_cache")
     @patch("firmware.sh.apt_get")
-    def test__check_latest(self, mock_apt_get, mock_apt_cache):
+    def test__check__latest(self, mock_apt_get, mock_apt_cache):
         """
         check: firmware version is latest
         """
@@ -157,12 +168,12 @@ class TestFirmwareClass(unittest.TestCase):
         mock_apt_cache.side_effect = mock_policy
         check = self.bundle.check()
         self.assertEqual(check["isLatest"], 1)
-        self.assertEqual(check["installed"], "1.0.0")
+        self.assertEqual(check["current"], "1.0.0")
         self.assertEqual(check["candidate"], "1.0.0")
 
     @patch("firmware.sh.apt_cache")
     @patch("firmware.sh.apt_get")
-    def test__check_newer_then_candidate(self, mock_apt_get, mock_apt_cache):
+    def test__check__newer_then_candidate(self, mock_apt_get, mock_apt_cache):
         """
         check: firmware version is newer than candidate
         """
@@ -172,7 +183,7 @@ class TestFirmwareClass(unittest.TestCase):
         mock_apt_cache.side_effect = mock_policy
         check = self.bundle.check()
         self.assertEqual(check["isLatest"], 1)
-        self.assertEqual(check["installed"], "1.1.0")
+        self.assertEqual(check["current"], "1.1.0")
         self.assertEqual(check["candidate"], "1.0.0")
 
     @patch("firmware.time.sleep")
@@ -277,7 +288,7 @@ class TestFirmwareClass(unittest.TestCase):
         """
         def mock_check():
             check = dict()
-            check["installed"] = "1.0.0"
+            check["current"] = "1.0.0"
             check["candidate"] = "1.1.0"
             check["isLatest"] = 0
             return check
