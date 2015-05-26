@@ -103,8 +103,9 @@ class Firmware(Sanji):
         except:
             try:
                 sh.dpkg("--configure", "-a")
-                sh.apt_get("update", "-o",
-                           "Dir::Etc::sourcelist=\"sources.list.d/mxcloud.list\"")
+                sh.apt_get(
+                    "update", "-o",
+                    "Dir::Etc::sourcelist=\"sources.list.d/mxcloud.list\"")
             except:
                 raise Exception("Cannot update the package list.")
 
