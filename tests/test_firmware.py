@@ -247,12 +247,13 @@ class TestFirmwareClass(unittest.TestCase):
         """
         get (/system/firmware/check): update failed
         """
-        mock_check.side_effect = Exception("Update failed.")
+        mock_check.side_effect = Exception("Cannot update the package list.")
         message = Message({"data": {}, "query": {}, "param": {}})
 
         def resp(code=200, data=None):
             self.assertEqual(400, code)
-            self.assertEqual(data, {"message": "Update failed."})
+            self.assertEqual(data,
+                             {"message": "Cannot update the package list."})
         self.bundle.get_check(message=message, response=resp, test=True)
 
     @patch.object(Firmware, 'check')

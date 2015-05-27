@@ -196,7 +196,9 @@ class Firmware(Sanji):
             check = self.check()
         except Exception as e:
             if Exception("Cannot update the package list.").args == e.args:
-                return response(code=400, data={"message": "Update failed."})
+                return response(
+                    code=400,
+                    data={"message": "Cannot update the package list."})
             elif Exception("Firmware not installed.").args == e.args:
                 return response(code=400,
                                 data={"message": "Firmware not installed."})
