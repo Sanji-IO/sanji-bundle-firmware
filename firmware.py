@@ -81,9 +81,52 @@ class Firmware(Sanji):
         self.model.save_db()
         self.model.backup_db()
 
-    def upgrade(self):
-        # TODO: backup the configuration for future restore
+    def check(self):
+        """
+        dpkg --configure -a
+        apt-get update -o Dir::Etc::sourcelist="sources.list.d/mxcloud.list"
+          - finish
+          - timeout
+        apt-cache policy mxcloud-cg
+          - installed
+          - not installed: empty output
+        dpkg --compare-versions [current] le [candidate]
+          - true: there's newer for upgrade if [current] != [candidate]
+          - false: need not to be upgraded
+        """
 
+        # get the update list
+        try:
+            sh.apt_get("update", "-o",
+                       "Dir::Etc::sourcelist=\"sources.list.d/mxcloud.list\"")
+        except:
+            try:
+                sh.dpkg("--configure", "-a")
+                sh.apt_get(
+                    "update", "-o",
+                    "Dir::Etc::sourcelist=\"sources.list.d/mxcloud.list\"")
+            except:
+                raise Exception("Cannot update the package list.")
+
+        # retrieve version
+        output = sh.apt_cache("policy", "mxcloud-cg").splitlines()
+        if len(output) < 3:
+            raise Exception("Firmware not installed.")
+
+        check = {}
+        check["isLatest"] = 0
+        check["current"] = output[1].split()[1]
+        check["candidate"] = output[2].split()[1]
+        try:
+            output = sh.dpkg("--compare-versions", check["current"], "le",
+                             check["candidate"])
+            if check["current"] == check["candidate"]:
+                check["isLatest"] = 1
+        except:
+            check["isLatest"] = 1
+        return check
+
+    def upgrade(self):
         # set flags to show the upgrading status
         """
         self.publish.event.put(
@@ -93,18 +136,23 @@ class Firmware(Sanji):
         self.model.db["upgrading"] = 1
         self.save()
 
+        # stop remote bridge
+        self.publish.put("/system/remote", data={"enable": 0})
         time.sleep(1)
         try:
             sh.sh(profile["upgrade_firmware"])
             logger.info("Upgrading success, reboot now.")
             self.model.db["upgrading"] = 0
             self.save()
-            sh.reboot()
         except:
             logger.error("Upgrading failed, please check if the file is"
                          " correct.")
             self.model.db["upgrading"] = -1
             self.save()
+
+            # start remote bridge
+            self.publish.put("/system/remote", data={"enable": 1})
+        sh.reboot()
 
     def setdef(self):
         # TODO: stop the services that may have side effect when setdef
@@ -134,6 +182,28 @@ class Firmware(Sanji):
         output = sh.awk(sh.pversion(), "{print $3}")
         self.model.db["version"] = str(output.split()[0])
         return response(data=self.model.db)
+
+    @Route(methods="get", resource="/system/firmware/check")
+    def get_check(self, message, response):
+        """
+        {
+            "isLatest": 1,
+            "current": "1.0.0",
+            "candidate": "1.0.0"
+        }
+        """
+        try:
+            check = self.check()
+        except Exception as e:
+            if Exception("Cannot update the package list.").args == e.args:
+                return response(
+                    code=400,
+                    data={"message": "Cannot update the package list."})
+            elif Exception("Firmware not installed.").args == e.args:
+                return response(code=400,
+                                data={"message": "Firmware not installed."})
+            return response(code=400, data={"message": "Unknown error."})
+        return response(data=check)
 
     @Route(methods="put", resource="/system/firmware")
     def put(self, message, response):

@@ -6,6 +6,7 @@ import os
 import sys
 import logging
 import unittest
+import sh
 
 from mock import patch
 from mock import MagicMock
@@ -107,6 +108,84 @@ class TestFirmwareClass(unittest.TestCase):
         # Already tested in init()
         pass
 
+    @patch("firmware.sh.apt_get")
+    def test__check__update_failed(self, mock_apt_get):
+        """
+        check: failed to update the apt list
+        """
+        mock_apt_get.side_effect = Exception("error")
+        with self.assertRaises(Exception):
+            self.bundle.check()
+
+    @patch("firmware.sh.dpkg")
+    @patch("firmware.sh.apt_get")
+    def test__check__update_failed2(self, mock_apt_get, mock_dpkg):
+        """
+        check: failed to update the apt list
+        """
+        mock_apt_get.side_effect = Exception("error")
+        mock_dpkg.side_effect = Exception("error")
+        with self.assertRaises(Exception):
+            self.bundle.check()
+
+    @patch("firmware.sh.apt_cache")
+    @patch("firmware.sh.apt_get")
+    def test__check__not_installed(self, mock_apt_get, mock_apt_cache):
+        """
+        check: firmware didn't installed
+        """
+        def mock_policy():
+            return ""
+
+        mock_apt_cache.side_effect = mock_policy
+        with self.assertRaises(Exception):
+            self.bundle.check()
+
+    @patch("firmware.sh.apt_cache")
+    @patch("firmware.sh.apt_get")
+    def test__check__not_latest(self, mock_apt_get, mock_apt_cache):
+        """
+        check: firmware version is not latest
+        """
+        def mock_policy(arg1, arg2):
+            return sh.version_compare("1.0.0", "1.1.0")
+
+        mock_apt_cache.side_effect = mock_policy
+        check = self.bundle.check()
+        self.assertEqual(check["isLatest"], 0)
+        self.assertEqual(check["current"], "1.0.0")
+        self.assertEqual(check["candidate"], "1.1.0")
+
+    @patch("firmware.sh.apt_cache")
+    @patch("firmware.sh.apt_get")
+    def test__check__latest(self, mock_apt_get, mock_apt_cache):
+        """
+        check: firmware version is latest
+        """
+        def mock_policy(arg1, arg2):
+            return sh.version_compare("1.0.0", "1.0.0")
+
+        mock_apt_cache.side_effect = mock_policy
+        check = self.bundle.check()
+        self.assertEqual(check["isLatest"], 1)
+        self.assertEqual(check["current"], "1.0.0")
+        self.assertEqual(check["candidate"], "1.0.0")
+
+    @patch("firmware.sh.apt_cache")
+    @patch("firmware.sh.apt_get")
+    def test__check__newer_then_candidate(self, mock_apt_get, mock_apt_cache):
+        """
+        check: firmware version is newer than candidate
+        """
+        def mock_policy(arg1, arg2):
+            return sh.version_compare("1.1.0", "1.0.0")
+
+        mock_apt_cache.side_effect = mock_policy
+        check = self.bundle.check()
+        self.assertEqual(check["isLatest"], 1)
+        self.assertEqual(check["current"], "1.1.0")
+        self.assertEqual(check["candidate"], "1.0.0")
+
     @patch("firmware.time.sleep")
     @patch("firmware.sh.sh")
     @patch("firmware.sh.reboot")
@@ -162,6 +241,65 @@ class TestFirmwareClass(unittest.TestCase):
             self.assertEqual(200, code)
             self.assertEqual("1.0.0", data["version"])
         self.bundle.get(message=message, response=resp, test=True)
+
+    @patch.object(Firmware, 'check')
+    def test__get_check__update_failed(self, mock_check):
+        """
+        get (/system/firmware/check): update failed
+        """
+        mock_check.side_effect = Exception("Cannot update the package list.")
+        message = Message({"data": {}, "query": {}, "param": {}})
+
+        def resp(code=200, data=None):
+            self.assertEqual(400, code)
+            self.assertEqual(data,
+                             {"message": "Cannot update the package list."})
+        self.bundle.get_check(message=message, response=resp, test=True)
+
+    @patch.object(Firmware, 'check')
+    def test__get_check__firmware_not_installed(self, mock_check):
+        """
+        get (/system/firmware/check): firmware not installed
+        """
+        mock_check.side_effect = Exception("Firmware not installed.")
+        message = Message({"data": {}, "query": {}, "param": {}})
+
+        def resp(code=200, data=None):
+            self.assertEqual(400, code)
+            self.assertEqual(data, {"message": "Firmware not installed."})
+        self.bundle.get_check(message=message, response=resp, test=True)
+
+    @patch.object(Firmware, 'check')
+    def test__get_check__unknown_error(self, mock_check):
+        """
+        get (/system/firmware/check): unknown error
+        """
+        mock_check.side_effect = Exception("error")
+        message = Message({"data": {}, "query": {}, "param": {}})
+
+        def resp(code=200, data=None):
+            self.assertEqual(400, code)
+            self.assertEqual(data, {"message": "Unknown error."})
+        self.bundle.get_check(message=message, response=resp, test=True)
+
+    @patch.object(Firmware, 'check')
+    def test__get_check(self, mock_check):
+        """
+        get (/system/firmware/check)
+        """
+        def mock_check():
+            check = dict()
+            check["current"] = "1.0.0"
+            check["candidate"] = "1.1.0"
+            check["isLatest"] = 0
+            return check
+
+        mock_check.side_effect = mock_check
+        message = Message({"data": {}, "query": {}, "param": {}})
+
+        def resp(code=200, data=None):
+            self.assertEqual(200, code)
+        self.bundle.get_check(message=message, response=resp, test=True)
 
     def test__put__no_data(self):
         """
