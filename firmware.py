@@ -85,7 +85,6 @@ class Firmware(Sanji):
         """
         dpkg --configure -a
         apt-get update -o Dir::Etc::sourcelist="sources.list.d/mxcloud.list"
-                -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
           - finish
           - timeout
         apt-cache policy mxcloud-cg
@@ -196,7 +195,7 @@ class Firmware(Sanji):
         try:
             check = self.check()
         except Exception as e:
-            if Exception("Update failed.").args == e.args:
+            if Exception("Cannot update the package list.").args == e.args:
                 return response(code=400, data={"message": "Update failed."})
             elif Exception("Firmware not installed.").args == e.args:
                 return response(code=400,
