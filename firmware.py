@@ -111,7 +111,7 @@ class Firmware(Sanji):
         # retrieve version
         output = sh.apt_cache("policy", "mxcloud-cg").splitlines()
         if len(output) < 3:
-            raise Exception("Firmware not installed.")
+            raise Exception("Unknown error.")
 
         check = {}
         check["isLatest"] = 0
@@ -123,7 +123,8 @@ class Firmware(Sanji):
             if check["current"] == check["candidate"]:
                 check["isLatest"] = 1
         except:
-            check["isLatest"] = 1
+            if check["current"] != "(none)":
+                check["isLatest"] = 1
         return check
 
     def upgrade(self):
@@ -140,6 +141,7 @@ class Firmware(Sanji):
         self.publish.put("/system/remote", data={"enable": 0})
         time.sleep(1)
         try:
+            logger.info("Upgrading...")
             sh.sh(profile["upgrade_firmware"])
             logger.info("Upgrading success, reboot now.")
             self.model.db["upgrading"] = 0

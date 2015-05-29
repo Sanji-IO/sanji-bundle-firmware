@@ -132,14 +132,16 @@ class TestFirmwareClass(unittest.TestCase):
     @patch("firmware.sh.apt_get")
     def test__check__not_installed(self, mock_apt_get, mock_apt_cache):
         """
-        check: firmware didn't installed
+        check: firmware version is not latest
         """
-        def mock_policy():
-            return ""
+        def mock_policy(arg1, arg2):
+            return sh.version_compare("(none)", "1.1.0")
 
         mock_apt_cache.side_effect = mock_policy
-        with self.assertRaises(Exception):
-            self.bundle.check()
+        check = self.bundle.check()
+        self.assertEqual(check["isLatest"], 0)
+        self.assertEqual(check["current"], "(none)")
+        self.assertEqual(check["candidate"], "1.1.0")
 
     @patch("firmware.sh.apt_cache")
     @patch("firmware.sh.apt_get")
@@ -257,24 +259,11 @@ class TestFirmwareClass(unittest.TestCase):
         self.bundle.get_check(message=message, response=resp, test=True)
 
     @patch.object(Firmware, 'check')
-    def test__get_check__firmware_not_installed(self, mock_check):
-        """
-        get (/system/firmware/check): firmware not installed
-        """
-        mock_check.side_effect = Exception("Firmware not installed.")
-        message = Message({"data": {}, "query": {}, "param": {}})
-
-        def resp(code=200, data=None):
-            self.assertEqual(400, code)
-            self.assertEqual(data, {"message": "Firmware not installed."})
-        self.bundle.get_check(message=message, response=resp, test=True)
-
-    @patch.object(Firmware, 'check')
     def test__get_check__unknown_error(self, mock_check):
         """
         get (/system/firmware/check): unknown error
         """
-        mock_check.side_effect = Exception("error")
+        mock_check.side_effect = Exception("Unknown error.")
         message = Message({"data": {}, "query": {}, "param": {}})
 
         def resp(code=200, data=None):
