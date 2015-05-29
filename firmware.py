@@ -141,6 +141,7 @@ class Firmware(Sanji):
         self.publish.put("/system/remote", data={"enable": 0})
         time.sleep(1)
         try:
+            logger.info("Upgrading...")
             sh.sh(profile["upgrade_firmware"])
             logger.info("Upgrading success, reboot now.")
             self.model.db["upgrading"] = 0
