@@ -27,6 +27,10 @@ uc8100 ()
 			return 1
 		fi
 	fi
+	# logger -t "mxcg_generic" \
+	#	"$(date +'%F %T,000') INFO:sanji.firmware:upgrade:30" \
+	#	"Upgrading success, reboot now."
+	# reboot
 	return 0
 }
 
