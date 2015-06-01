@@ -147,7 +147,7 @@ class Firmware(Sanji):
             self.model.db["upgrading"] = 0
         except:
             _logger.error("Upgrading failed, please check if the file is"
-                         " correct.")
+                          " correct.")
             _logger.error("Reboot now to recover the system.")
             self.model.db["upgrading"] = -1
         self.save()
