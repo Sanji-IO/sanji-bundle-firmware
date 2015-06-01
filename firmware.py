@@ -11,7 +11,7 @@ from sanji.connection.mqtt import Mqtt
 from sanji.model_initiator import ModelInitiator
 
 # TODO: logger should be defined in sanji package?
-logger = logging.getLogger()
+_logger = logging.getLogger("sanji.firmware")
 
 path_root = os.path.abspath(os.path.dirname(__file__))
 
@@ -141,19 +141,20 @@ class Firmware(Sanji):
         self.publish.put("/system/remote", data={"enable": 0})
         time.sleep(1)
         try:
-            logger.info("Upgrading...")
+            _logger.info("Upgrading...")
             sh.sh(profile["upgrade_firmware"])
-            logger.info("Upgrading success, reboot now.")
+            _logger.info("Upgrading success, reboot now.")
             self.model.db["upgrading"] = 0
-            self.save()
         except:
-            logger.error("Upgrading failed, please check if the file is"
+            _logger.error("Upgrading failed, please check if the file is"
                          " correct.")
+            _logger.error("Reboot now to recover the system.")
             self.model.db["upgrading"] = -1
-            self.save()
+        self.save()
 
-            # start remote bridge
-            self.publish.put("/system/remote", data={"enable": 1})
+        # start remote bridge
+        self.publish.put("/system/remote", data={"enable": 1})
+        time.sleep(1)
         sh.reboot()
 
     def setdef(self):
@@ -164,12 +165,12 @@ class Firmware(Sanji):
         time.sleep(1)
         try:
             sh.setdef()
-            logger.info("Resetting to factory default success, reboot now.")
+            _logger.info("Resetting to factory default success, reboot now.")
             self.model.db["defaulting"] = 0
             self.save()
             sh.reboot()
         except:
-            logger.error("Resetting failed.")
+            _logger.error("Resetting failed.")
             self.model.db["defaulting"] = -1
             self.save()
 
@@ -252,7 +253,7 @@ class Firmware(Sanji):
 if __name__ == "__main__":  # pragma: no cover
     FORMAT = "%(asctime)s - %(levelname)s - %(lineno)s - %(message)s"
     logging.basicConfig(level=0, format=FORMAT)
-    logger = logging.getLogger("Firmware")
+    _logger = logging.getLogger("sanji.firmware")
 
     firmware = Firmware(connection=Mqtt())
     firmware.start()
